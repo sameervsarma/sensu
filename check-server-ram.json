@@ -1,0 +1,10 @@
+{
+  "checks": {
+    "server_cpu_usage": {
+      "handlers": ["mailer", "slack"],
+      "command": "/etc/sensu/plugins/check-ram.rb -w WARN -c CRIT",
+      "interval": 43200,
+      "subscribers": [ "server-client" ]
+    }
+  }
+}
