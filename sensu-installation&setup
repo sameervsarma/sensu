@@ -209,7 +209,7 @@ Step 6: Place the client.json file in /etc/sensu/conf.d:
 {
   "client": {
     "name": "Jenkins-slave1",
-    "address": "96.115.240.60",
+    "address": "client_ip",
     "subscriptions": [ "Jenkins-slave1" ],
     "safe_mode":false
   }
