@@ -1,0 +1,311 @@
+SENSU MASTER SERVER CONFIGURATION:
+
+STEP 1:  adduser username
+Example: adduser sensu
+
+STEP 2:  visudo
+## This step adds username to have permissions like root
+## This will open the /etc/sudoers file. In the User privilege specification section add another line for the created user so it looks like this (with your chosen username instead of username):
+
+Example:
+# User privilege specification
+root ALL=(ALL:ALL) ALL
+sensu ALL=(ALL:ALL) ALL
+
+STEP 3: su - username
+
+Example:
+su - sensu
+
+STEP 4: 
+sudo apt-get update && sudo apt-get -y upgrade
+
+STEP 5:
+echo "deb http://www.rabbitmq.com/debian/ testing main" | sudo tee -a /etc/apt/sources.list.d/rabbitmq.list
+ 
+STEP 6:
+curl -L -o ~/rabbitmq-signing-key-public.asc http://www.rabbitmq.com/rabbitmq-signing-key-public.asc
+sudo apt-key add ~/rabbitmq-signing-key-public.asc
+
+
+STEP 7:
+sudo apt-get update && sudo apt-get install -y rabbitmq-server erlang-nox
+
+STEP 8:
+sudo service rabbitmq-server start
+
+STEP 9:
+cd /tmp
+sudo wget http://sensuapp.org/docs/0.25/files/sensu_ssl_tool.tar
+sudo tar -xvf sensu_ssl_tool.tar
+cd sensu_ssl_tool
+./ssl_certs.sh generate
+
+STEP 10:
+sudo mkdir -p /etc/rabbitmq/ssl && sudo cp /tmp/ssl_certs/sensu_ca/cacert.pem /tmp/ssl_certs/server/cert.pem /tmp/ssl_certs/server/key.pem /etc/rabbitmq/ssl
+
+STEP 11:
+sudo vi /etc/rabbitmq/rabbitmq.config
+
+Copy - paste the below in the file:
+
+[
+    {rabbit, [
+    {ssl_listeners, [5671]},
+    {ssl_options, [{cacertfile,"/etc/rabbitmq/ssl/cacert.pem"},
+                   {certfile,"/etc/rabbitmq/ssl/cert.pem"},
+                   {keyfile,"/etc/rabbitmq/ssl/key.pem"},
+                   {verify,verify_peer},
+                   {fail_if_no_peer_cert,true}]}
+  ]}
+].
+
+STEP 12:
+sudo service rabbitmq-server restart
+
+STEP 13:
+sudo rabbitmqctl add_vhost /sensu
+sudo rabbitmqctl add_user sensu pass
+sudo rabbitmqctl set_permissions -p /sensu sensu ".*" ".*" ".*"
+
+NOTE: In above commands pass is the password, which I have changed to "sensu" and would be using the same in below mentions
+
+STEP 14:
+sudo apt-get -y install redis-server
+
+STEP 15:
+sudo service redis-server start
+
+STEP 16:
+wget -q http://repositories.sensuapp.org/apt/pubkey.gpg -O- | sudo apt-key add -
+echo "deb http://repositories.sensuapp.org/apt sensu main" | sudo tee -a /etc/apt/sources.list.d/sensu.list
+
+STEP 17:
+sudo apt-get update && sudo apt-get install -y sensu uchiwa
+
+STEP 18:
+sudo mkdir -p /etc/sensu/ssl && sudo cp /tmp/ssl_certs/client/cert.pem /tmp/ssl_certs/client/key.pem /etc/sensu/ssl
+
+STEP 19:
+sudo vi /etc/sensu/conf.d/rabbitmq.json
+
+{
+  "rabbitmq": {
+    "ssl": {
+      "cert_chain_file": "/etc/sensu/ssl/cert.pem",
+      "private_key_file": "/etc/sensu/ssl/key.pem"
+    },
+    "host": "96.112.9.17",
+    "port": 5671,
+    "vhost": "/sensu",
+    "user": "sensu",
+    "password": "sensu"
+  }
+}
+
+
+NOTE: 96.112.9.17 in the above file is the HOST IP of my master server. 
+
+STEP 20:
+sudo vi /etc/sensu/conf.d/redis.json
+
+{
+  "redis": {
+    "host": "127.0.0.1",
+    "port": 6379
+  }
+}
+
+
+STEP 21:
+sudo vi /etc/sensu/conf.d/api.json
+
+{
+  "api": {
+    "host": "96.112.9.17",
+    "port": 4567
+  }
+}
+
+STEP 22:
+sudo vi /etc/sensu/uchiwa.json
+
+{
+    "sensu": [
+        {
+            "name": "Sensu",
+            "host": "96.112.9.17",
+            "ssl": false,
+            "port": 4567,
+            "path": "",
+            "timeout": 5000
+        }
+    ],
+    "uchiwa": {
+        "port": 3001,
+        "stats": 10,
+        "refresh": 10000,
+        "user": "admin",
+        "pass": "{crypt}$apr1$c3MeUuHl$XQbiJr9/3vTGJeyUVelFx1",
+        "users": [
+       {
+        "username" : "admin",
+        "password": "{crypt}$apr1$c3MeUuHl$XQbiJr9/3vTGJeyUVelFx1",
+        "readonly": false
+        },
+       {
+        "username" : "guest",
+        "password": "guest",
+        "readonly": true
+        }
+      ]
+
+    }
+}
+
+STEP 23:
+sudo update-rc.d sensu-server defaults
+sudo update-rc.d sensu-client defaults
+sudo update-rc.d sensu-api defaults
+sudo update-rc.d uchiwa defaults
+
+STEP 24:
+sudo service sensu-server start
+sudo service sensu-client start
+sudo service sensu-api start
+sudo service uchiwa start
+
+SENSU IN UCHIWA DASHBOARD SHOULD NOW BE AVAILABLE AT 
+http://96.112.9.17:3001 
+
+SENSU CLIENT SERVER CONFIGURATION:
+
+Step 1: Copy the cert.pem and key.pem from Master server (/etc/sensu/ssl/ location) to /tmp directory of slave.
+
+Step 2: Run the following commands in client server:
+wget -q http://repositories.sensuapp.org/apt/pubkey.gpg -O- | sudo apt-key add -
+echo "deb     http://repositories.sensuapp.org/apt sensu main" | sudo tee -a /etc/apt/sources.list.d/sensu.list
+
+Step 3:  Install sensu with below command
+sudo apt-get update && sudo apt-get -y install sensu
+
+
+Step 4: After installation, copy the cert and key. Pem files places in tmp to ssl directory with below commands:
+sudo mkdir -p /etc/sensu/ssl && sudo cp /tmp/cert.pem /tmp/key.pem /etc/sensu/ssl
+
+Step 5: Place the rabbit.mq file:
+
+{
+  "rabbitmq": {
+    "ssl": {
+      "cert_chain_file": "/etc/sensu/ssl/cert.pem",
+      "private_key_file": "/etc/sensu/ssl/key.pem"
+    },
+    "host": "96.112.9.17",
+    "port": 5671,
+    "vhost": "/sensu",
+    "user": "sensu",
+    "password": "sensu"
+  }
+}
+
+
+Step 6: Place the client.json file in /etc/sensu/conf.d:
+{
+  "client": {
+    "name": "Jenkins-slave1",
+    "address": "96.115.240.60",
+    "subscriptions": [ "Jenkins-slave1" ],
+    "safe_mode":false
+  }
+}
+
+Step 7: Give permissions for sensu user to have sudo permission by adding below line
+Sudo vi /etc/sudoers
+sensu   ALL=(ALL:ALL) NOPASSWD: ALL
+
+Step 8: 
+Install below gem's in the server:
+sudo /opt/sensu/embedded/bin/gem install sys-filesystem
+sudo /opt/sensu/embedded/bin/gem install sys
+sudo /opt/sensu/embedded/bin/gem install monitor
+sudo /opt/sensu/embedded/bin/gem install vmstat
+sudo /opt/sensu/embedded/bin/gem install sensu-plugins-disk-checks
+
+Step 9:
+
+Step 10:
+sudo update-rc.d sensu-client defaults
+sudo service sensu-client start
+
+
+
+
+SENSU REMEDIATION SETUP:
+SENSU MASTER:
+
+File 1:
+Location: ubuntu@sensu-master:/etc/sensu/conf.d/checks
+
+ubuntu@sensu-master:/etc/sensu/conf.d/checks$ cat check-Jenkins-slave1-apache.json
+{
+"checks": {
+"Jenkins-slave1_apache_check": {
+"command": "/opt/sensu/embedded/bin/ruby /etc/sensu/plugins/check-apache.rb",
+"subscribers": ["Jenkins-slave1"],
+"interval": 60,
+"handlers": ["Jenkins-slave1-remediator","mailer"],
+"remediation":{
+        "first_remediation": {
+          "occurrences": ["1+"],
+          "severities": [1],
+          "command": "sh /etc/sensu/handlers/start_apache.sh"
+        }
+}
+}
+}
+}
+
+File 2:
+ubuntu@sensu-master:/etc/sensu/conf.d/checks$ cat Jenkins-slave1-remediator.json
+{
+  "handlers": {
+        "Jenkins-slave1-remediator": {
+          "type": "pipe",
+             "severities": [
+              "warning",
+              "ok",
+              "unknown",
+              "critical"
+         ],
+        "subscribers": ["Jenkins-slave1"],
+        "trigger_on": ["Jenkins-slave1"],
+        "command": "/etc/sensu/handlers/handler-sensu.rb"
+        }
+  }
+}
+
+File 3:
+ubuntu@sensu-master:/etc/sensu/conf.d/checks$ cat first_remediation.json
+{
+"checks": {
+"start_apache": {
+"command": "sh /etc/sensu/handlers/start_apache.sh",
+"subscribers": ["Jenkins-slave1"],
+"interval": 60
+}
+}
+}
+
+COMMAND TO REMOVE UN-NECESSARY CLIENTS VIA API:
+curl -s -i -X DELETE http://127.0.0.1:4567/clients/<NewNexus>
+
+REFERENCES:
+	Ø  https://www.digitalocean.com/community/tutorials/how-to-configure-sensu-monitoring-rabbitmq-and-redis-on-ubuntu-14-04  (Mostly refer this link)
+	Ø https://sensuapp.org/docs/0.26/quick-start/the-five-minute-install.html
+	Ø https://github.com/sensu-plugins/sensu-plugins-process-checks/blob/master/bin/check-process.rb
+	Ø https://www.brightbox.com/docs/ruby/ubuntu/ 
+	Ø https://github.com/solarkennedy/sensu-training/tree/master/introduction/lectures/Adding%20a%20Real%20Handler
+	Ø https://groups.google.com/forum/#!topic/sensu-users/ArXVNi43kuU
+	Ø https://groups.google.com/forum/#!topic/sensu-users/BI1VVqSou-8
+	Ø https://docs.uchiwa.io/getting-started/configuration/
