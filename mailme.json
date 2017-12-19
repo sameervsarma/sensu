@@ -1,0 +1,9 @@
+{
+        "mailme": {
+                "mail_from": "mail_id",
+                "mail_to": "mail_id",
+                "smtp_port": "25",
+                "smtp_address": "webmail.com",
+                "smtp_domain": "domain"
+        }
+}
