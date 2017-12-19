@@ -95,7 +95,7 @@ sudo vi /etc/sensu/conf.d/rabbitmq.json
       "cert_chain_file": "/etc/sensu/ssl/cert.pem",
       "private_key_file": "/etc/sensu/ssl/key.pem"
     },
-    "host": "96.112.9.17",
+    "host": "server_ip",
     "port": 5671,
     "vhost": "/sensu",
     "user": "sensu",
@@ -104,7 +104,7 @@ sudo vi /etc/sensu/conf.d/rabbitmq.json
 }
 
 
-NOTE: 96.112.9.17 in the above file is the HOST IP of my master server. 
+NOTE: server_ip in the above file is the HOST IP of my master server. 
 
 STEP 20:
 sudo vi /etc/sensu/conf.d/redis.json
@@ -122,7 +122,7 @@ sudo vi /etc/sensu/conf.d/api.json
 
 {
   "api": {
-    "host": "96.112.9.17",
+    "host": "server_ip",
     "port": 4567
   }
 }
@@ -134,7 +134,7 @@ sudo vi /etc/sensu/uchiwa.json
     "sensu": [
         {
             "name": "Sensu",
-            "host": "96.112.9.17",
+            "host": "server_ip",
             "ssl": false,
             "port": 4567,
             "path": "",
@@ -146,13 +146,8 @@ sudo vi /etc/sensu/uchiwa.json
         "stats": 10,
         "refresh": 10000,
         "user": "admin",
-        "pass": "{crypt}$apr1$c3MeUuHl$XQbiJr9/3vTGJeyUVelFx1",
+        "pass": "admin123",
         "users": [
-       {
-        "username" : "admin",
-        "password": "{crypt}$apr1$c3MeUuHl$XQbiJr9/3vTGJeyUVelFx1",
-        "readonly": false
-        },
        {
         "username" : "guest",
         "password": "guest",
@@ -176,7 +171,7 @@ sudo service sensu-api start
 sudo service uchiwa start
 
 SENSU IN UCHIWA DASHBOARD SHOULD NOW BE AVAILABLE AT 
-http://96.112.9.17:3001 
+http://server_ip:3001 
 
 SENSU CLIENT SERVER CONFIGURATION:
 
@@ -184,7 +179,7 @@ Step 1: Copy the cert.pem and key.pem from Master server (/etc/sensu/ssl/ locati
 
 Step 2: Run the following commands in client server:
 wget -q http://repositories.sensuapp.org/apt/pubkey.gpg -O- | sudo apt-key add -
-echo "deb     http://repositories.sensuapp.org/apt sensu main" | sudo tee -a /etc/apt/sources.list.d/sensu.list
+echo "deb http://repositories.sensuapp.org/apt sensu main" | sudo tee -a /etc/apt/sources.list.d/sensu.list
 
 Step 3:  Install sensu with below command
 sudo apt-get update && sudo apt-get -y install sensu
@@ -201,7 +196,7 @@ Step 5: Place the rabbit.mq file:
       "cert_chain_file": "/etc/sensu/ssl/cert.pem",
       "private_key_file": "/etc/sensu/ssl/key.pem"
     },
-    "host": "96.112.9.17",
+    "host": "server_ip",
     "port": 5671,
     "vhost": "/sensu",
     "user": "sensu",
@@ -232,14 +227,9 @@ sudo /opt/sensu/embedded/bin/gem install monitor
 sudo /opt/sensu/embedded/bin/gem install vmstat
 sudo /opt/sensu/embedded/bin/gem install sensu-plugins-disk-checks
 
-Step 9:
-
 Step 10:
 sudo update-rc.d sensu-client defaults
 sudo service sensu-client start
-
-
-
 
 SENSU REMEDIATION SETUP:
 SENSU MASTER:
